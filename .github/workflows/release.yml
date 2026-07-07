@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  FYNE_TOOLS_VERSION: v1.7.2
+  APP_ID: dev.slowtyper.drinkbell
+  APP_NAME: Drink Bell
+
+jobs:
+  build-macos:
+    name: Build macOS ${{ matrix.arch }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - arm64
+          - amd64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Package app
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          GOOS=darwin GOARCH="${{ matrix.arch }}" go build -o dist/DrinkBell ./cmd/drink-bell
+          go run "fyne.io/tools/cmd/fyne@${FYNE_TOOLS_VERSION}" package \
+            --executable dist/DrinkBell \
+            --target darwin \
+            --release \
+            --icon assets/Icon.png \
+            --name "${APP_NAME}" \
+            --app-id "${APP_ID}" \
+            --app-version "${version}"
+          ditto -c -k --keepParent "${APP_NAME}.app" "dist/DrinkBell-darwin-${{ matrix.arch }}.zip"
+          test -s "dist/DrinkBell-darwin-${{ matrix.arch }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DrinkBell-darwin-${{ matrix.arch }}
+          path: dist/DrinkBell-darwin-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows amd64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up MinGW
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+
+      - name: Add MinGW to PATH
+        shell: pwsh
+        run: |
+          "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Package app
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $exe = "$($env:APP_NAME).exe"
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          go build -o "$exe" ./cmd/drink-bell
+          go run "fyne.io/tools/cmd/fyne@$env:FYNE_TOOLS_VERSION" package `
+            --executable "$exe" `
+            --target windows `
+            --release `
+            --icon assets/Icon.png `
+            --name "$env:APP_NAME" `
+            --app-id "$env:APP_ID" `
+            --app-version "$version"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "$exe" -DestinationPath "dist/DrinkBell-windows-amd64.zip" -Force
+          if (!(Test-Path "dist/DrinkBell-windows-amd64.zip")) {
+            throw "missing windows artifact"
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DrinkBell-windows-amd64
+          path: dist/DrinkBell-windows-amd64.zip
+          if-no-files-found: error
+
+  build-linux:
+    name: Build Linux amd64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Fyne Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
+
+      - name: Package app
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -o dist/DrinkBell ./cmd/drink-bell
+          go run "fyne.io/tools/cmd/fyne@${FYNE_TOOLS_VERSION}" package \
+            --executable dist/DrinkBell \
+            --target linux \
+            --release \
+            --icon assets/Icon.png \
+            --name "${APP_NAME}" \
+            --app-id "${APP_ID}" \
+            --app-version "${version}"
+          mv "${APP_NAME}.tar.xz" dist/DrinkBell-linux-amd64.tar.xz
+          test -s dist/DrinkBell-linux-amd64.tar.xz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DrinkBell-linux-amd64
+          path: dist/DrinkBell-linux-amd64.tar.xz
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - build-macos
+      - build-windows
+      - build-linux
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -la release-assets
+          test -s release-assets/DrinkBell-darwin-arm64.zip
+          test -s release-assets/DrinkBell-darwin-amd64.zip
+          test -s release-assets/DrinkBell-windows-amd64.zip
+          test -s release-assets/DrinkBell-linux-amd64.tar.xz
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" release-assets/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "Drink Bell ${GITHUB_REF_NAME}" \
+            --notes "Unsigned desktop packages for Drink Bell ${GITHUB_REF_NAME}."

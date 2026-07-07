@@ -1,0 +1,9 @@
+/drink-bell
+/dist/
+/release/
+/*.app
+/*.exe
+/*.tar.gz
+/*.tar.xz
+/*.zip
+.DS_Store

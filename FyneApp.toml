@@ -1,0 +1,14 @@
+Website = "https://github.com/davidchandra95/drink-bell"
+
+[Details]
+Icon = "assets/Icon.png"
+Name = "Drink Bell"
+ID = "dev.slowtyper.drinkbell"
+Version = "0.1.0"
+Build = 3
+
+[LinuxAndBSD]
+GenericName = "Water Reminder"
+Categories = ["Utility"]
+Comment = "A small water reminder tray app"
+Keywords = ["water", "hydration", "reminder"]
