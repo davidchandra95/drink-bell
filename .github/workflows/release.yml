@@ -94,15 +94,18 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
-          $exe = "$($env:APP_NAME).exe"
+          $src = Join-Path $env:GITHUB_WORKSPACE "cmd\drink-bell"
+          $icon = Join-Path $env:GITHUB_WORKSPACE "assets\Icon.png"
+          $exe = Join-Path $src "$($env:APP_NAME).exe"
           $env:GOOS = "windows"
           $env:GOARCH = "amd64"
           go build -o "$exe" ./cmd/drink-bell
           go run "fyne.io/tools/cmd/fyne@$env:FYNE_TOOLS_VERSION" package `
+            --src "$src" `
             --executable "$exe" `
             --target windows `
             --release `
-            --icon assets/Icon.png `
+            --icon "$icon" `
             --name "$env:APP_NAME" `
             --app-id "$env:APP_ID" `
             --app-version "$version"
