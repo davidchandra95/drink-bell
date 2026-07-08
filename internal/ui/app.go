@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -28,6 +27,11 @@ type App struct {
 
 type notifier struct {
 	app fyne.App
+}
+
+type trayDesktop interface {
+	SetSystemTrayIcon(fyne.Resource)
+	SetSystemTrayMenu(*fyne.Menu)
 }
 
 func (n notifier) SendReminder() error {
@@ -121,14 +125,17 @@ func (a *App) buildWindowContent() fyne.CanvasObject {
 }
 
 func (a *App) installTray() {
-	desk, ok := a.fyneApp.(desktop.App)
+	desk, ok := a.fyneApp.(trayDesktop)
 	if !ok {
 		return
 	}
 
-	desk.SetSystemTrayIcon(theme.InfoIcon())
-	desk.SetSystemTrayWindow(a.window)
-	desk.SetSystemTrayMenu(a.buildTrayMenu())
+	installTrayMenu(desk, theme.InfoIcon(), a.buildTrayMenu())
+}
+
+func installTrayMenu(desk trayDesktop, icon fyne.Resource, menu *fyne.Menu) {
+	desk.SetSystemTrayIcon(icon)
+	desk.SetSystemTrayMenu(menu)
 }
 
 func (a *App) buildTrayMenu() *fyne.Menu {

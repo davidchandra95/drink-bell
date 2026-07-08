@@ -52,6 +52,8 @@ jobs:
             --name "${APP_NAME}" \
             --app-id "${APP_ID}" \
             --app-version "${version}"
+          codesign --force --deep --sign - "${APP_NAME}.app"
+          codesign --verify --deep --strict --verbose=2 "${APP_NAME}.app"
           ditto -c -k --keepParent "${APP_NAME}.app" "dist/DrinkBell-darwin-${{ matrix.arch }}.zip"
           test -s "dist/DrinkBell-darwin-${{ matrix.arch }}.zip"
 
