@@ -2,6 +2,7 @@ package ui
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2"
@@ -38,5 +39,15 @@ func TestInstallTrayMenuConfiguresMenuOnly(t *testing.T) {
 	}
 	if want := []string{"icon", "menu"}; !reflect.DeepEqual(desk.calls, want) {
 		t.Fatalf("tray calls = %v, want %v", desk.calls, want)
+	}
+}
+
+func TestTrayIconUsesDropletResource(t *testing.T) {
+	icon := trayIcon()
+	if icon == nil {
+		t.Fatal("tray icon is nil")
+	}
+	if !strings.Contains(icon.Name(), "tray-droplet.svg") {
+		t.Fatalf("tray icon name = %q, want droplet resource", icon.Name())
 	}
 }

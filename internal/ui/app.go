@@ -130,7 +130,7 @@ func (a *App) installTray() {
 		return
 	}
 
-	installTrayMenu(desk, theme.InfoIcon(), a.buildTrayMenu())
+	installTrayMenu(desk, trayIcon(), a.buildTrayMenu())
 }
 
 func installTrayMenu(desk trayDesktop, icon fyne.Resource, menu *fyne.Menu) {
